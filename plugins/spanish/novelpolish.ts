@@ -327,7 +327,7 @@ private async polishChapter(originalHtml: string): Promise<string> {
     }
 
     // Reconstruir los párrafos para LNReader.
-    return polishedText
+    polishedText
       .split(/\n\s*\n/)
       .map(paragraph =>
         `<p>${paragraph
@@ -337,11 +337,13 @@ private async polishChapter(originalHtml: string): Promise<string> {
           .join('<br>')}</p>`
       )
       .join('');
+
+    return `<p style="text-align:center; color:#b36b00; font-size:12px;">— Capítulo pulido por Novel Polish —</p>${polishedText}`;
   } catch (error) {
     console.error('[Novel Polish] Error al reformular:', error);
 
     // Si falla Gemini o el Worker, conservar el capítulo original.
-    return originalHtml;
+    return `<p style="text-align:center; color:#b36b00; font-size:12px;">— Capítulo sin pulir —</p>${originalHtml}`;
   }
 }
 
