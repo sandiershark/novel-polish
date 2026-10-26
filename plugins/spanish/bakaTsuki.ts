@@ -42,7 +42,7 @@ class BakaTsuki implements Plugin.PluginBase {
    * The catalogue is exactly the wiki's own English light novel listing —
    * titles verbatim, romanised as Baka-Tsuki writes them.
    */
-  private readonly catalogueCategory = 'Light novel (English)';
+  private readonly catalogueCategory = 'Light novel (Spanish)';
 
   /**
    * Read for status only, not for catalogue membership. These are
