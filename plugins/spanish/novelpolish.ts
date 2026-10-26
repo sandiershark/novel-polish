@@ -283,8 +283,16 @@ class NovaPlugin implements Plugin.PluginBase {
     const $clean = cheerio.load(chapterContent);
     $clean('script, style, iframe, .ads, .advertisement').remove();
 
-    return $clean.html() || chapterContent;
+    const originalHtml = $clean.html() || chapterContent;
+    return this.polishChapter(originalHtml);
   }
+
+  private async polishChapter(originalHtml: string): Promise<string> {
+    // Por ahora, devolvemos el contenido original sin cambios.
+    // Más adelante, aquí incorporaremos el procesamiento mediante IA.
+
+    return `<p style="text-align:center; color:#888; font-size:12px;"> — HOLA ITU — </p> ${originalHtml}`;    
+    }
 }
 
 export default new NovaPlugin();
