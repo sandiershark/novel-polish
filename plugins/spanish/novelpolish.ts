@@ -287,12 +287,65 @@ class NovaPlugin implements Plugin.PluginBase {
     return this.polishChapter(originalHtml);
   }
 
-  private async polishChapter(originalHtml: string): Promise<string> {
-    // Por ahora, devolvemos el contenido original sin cambios.
-    // Más adelante, aquí incorporaremos el procesamiento mediante IA.
 
-    return `<p style="text-align:center; color:#888; font-size:12px;"> — HOLA ITU — </p> ${originalHtml}`;    
+  
+
+private async polishChapter(originalHtml: string): Promise<string> {
+  // Sustituye estos valores por los tuyos.
+  const workerUrl = 'https://novel-polish-api.sandiershark27.workers.dev/';
+  const workerToken = 'rgrgfthjtyf3453j45t23_87??!!';
+
+  try {
+    // Extraer el texto del HTML del capítulo.
+    const $ = cheerio.load(originalHtml);
+    const originalText = $('body').text().trim();
+
+    if (!originalText) {
+      return originalHtml;
     }
+
+    const response = await fetch(workerUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${workerToken}`,
+      },
+      body: JSON.stringify({
+        text: originalText,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Worker HTTP ${response.status}`);
+    }
+
+    const data = await response.json() as { text?: string };
+    const polishedText = data.text?.trim();
+
+    if (!polishedText) {
+      throw new Error('El Worker no ha devuelto texto');
+    }
+
+    // Reconstruir los párrafos para LNReader.
+    return polishedText
+      .split(/\n\s*\n/)
+      .map(paragraph =>
+        `<p>${paragraph
+          .trim()
+          .split('\n')
+          .map(line => line.trim())
+          .join('<br>')}</p>`
+      )
+      .join('');
+  } catch (error) {
+    console.error('[Novel Polish] Error al reformular:', error);
+
+    // Si falla Gemini o el Worker, conservar el capítulo original.
+    return originalHtml;
+  }
+}
+
+
 }
 
 export default new NovaPlugin();
