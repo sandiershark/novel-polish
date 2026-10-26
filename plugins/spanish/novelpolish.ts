@@ -290,70 +290,111 @@ class NovaPlugin implements Plugin.PluginBase {
 
 
 
-  async polishChapter(originalHtml: string): Promise<string> {
-    const workerUrl = 'https://novel-polish-api.sandiershark27.workers.dev/';
-    const workerToken = 'rgrgfthjtyf3453j45t23_87??!!';
+  
+async polishChapter(originalHtml: string): Promise<string> {
+  const workerUrl = 'https://novel-polish-api.sandiershark27.workers.dev/';
+  const workerToken = 'rgrgfthjtyf3453j45t23_87??!!';
+
+  try {
+    const $ = cheerio.load(originalHtml);
+    const originalBody = $('body').html()?.trim() ?? originalHtml;
+
+    if (!originalBody.trim()) {
+      return originalHtml +
+        '<p><strong>Capítulo sin pulir:</strong> no se encontró contenido.</p>';
+    }
+
+    const response = await fetch(workerUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${workerToken}`,
+      },
+      body: JSON.stringify({ html: originalBody }),
+    });
+
+    let data: { html?: string; error?: string };
 
     try {
-      const $ = cheerio.load(originalHtml);
-      const originalBody = $('body').html()?.trim() ?? originalHtml;
+      data = await response.json();
+    } catch {
+      return originalHtml +
+        '<p><strong>Capítulo sin pulir:</strong> el Worker ha devuelto una respuesta que no es JSON válido.</p>';
+    }
 
-      if (!originalBody.trim()) {
-        return originalHtml +
-          '<p><strong>Capítulo sin pulir:</strong> no se encontró contenido.</p>';
-      }
-
-      const response = await fetch(workerUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${workerToken}`,
-        },
-        body: JSON.stringify({ html: originalBody }),
-      });
-
-      let data: { html?: string; error?: string };
-
-      try {
-        data = await response.json();
-      } catch {
-        return originalHtml +
-          '<p><strong>Capítulo sin pulir:</strong> el Worker ha devuelto una respuesta que no es JSON válido.</p>';
-      }
-
-      if (!response.ok) {
-        return originalHtml +
-          `<p><strong>Capítulo sin pulir:</strong> ${
-            data.error ?? `Error HTTP ${response.status}`
-          }</p>`;
-      }
-
-      if (typeof data.html !== 'string' || !data.html.trim()) {
-        return originalHtml +
-          '<p><strong>Capítulo sin pulir:</strong> el Worker no ha devuelto HTML.</p>';
-      }
-
-      if (data.html.trim() === originalBody.trim()) {
-        return originalHtml +
-          '<p><strong>Capítulo sin pulir:</strong> el HTML devuelto es idéntico al original.</p>';
-      }
-
-      return data.html +
-        '<p><em>Capítulo pulido con IA.</em></p>';
-
-    } catch (error) {
-      console.error('Error al pulir el capítulo:', error);
-
-      const message = error instanceof Error
-        ? error.message
-        : 'Error desconocido';
-
+    if (!response.ok) {
       return originalHtml +
         `<p><strong>Capítulo sin pulir:</strong> ${
-          message.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          data.error ?? `Error HTTP ${response.status}`
         }</p>`;
     }
+
+    if (typeof data.html !== 'string' || !data.html.trim()) {
+      return originalHtml +
+        '<p><strong>Capítulo sin pulir:</strong> el Worker no ha devuelto HTML.</p>';
+    }
+
+    if (data.html.trim() === originalBody.trim()) {
+      return originalHtml +
+        '<p><strong>Capítulo sin pulir:</strong> el HTML devuelto es idéntico al original.</p>';
+    }
+
+    // Conserva los elementos del HTML original que estén fuera de los párrafos.
+    const originalParagraphs = cheerio.load(originalBody);
+    const generatedParagraphs = cheerio.load(data.html);
+
+    const generatedText = generatedParagraphs('body').html()?.trim()
+      ?? data.html.trim();
+
+    // Si el Worker devuelve párrafos, reemplaza el contenido del capítulo
+    // por ellos, conservando los elementos originales que no sean párrafos.
+    const hasNonParagraphContent = originalParagraphs('body')
+      .contents()
+      .toArray()
+      .some((node) => {
+        if (node.type === 'text') {
+          return !!(node.data ?? '').trim();
+        }
+
+        return node.type === 'tag' && node.name !== 'p';
+      });
+
+    let finalBody = generatedText;
+
+    if (hasNonParagraphContent) {
+      const original = cheerio.load(originalBody);
+      const generated = cheerio.load(generatedText);
+
+      const originalNonParagraphs = original('body')
+        .contents()
+        .toArray()
+        .filter((node) => node.type === 'tag' && node.name !== 'p');
+
+      // Recupera título y otros elementos originales que no sean párrafos.
+      const preserved = originalNonParagraphs
+        .map((node) => original.html(node) ?? '')
+        .join('');
+
+      finalBody = preserved + generated('body').html();
+    }
+
+    return finalBody +
+      '<p><em>Capítulo pulido con IA.</em></p>';
+
+  } catch (error) {
+    console.error('Error al pulir el capítulo:', error);
+
+    const message = error instanceof Error
+      ? error.message
+      : 'Error desconocido';
+
+    return originalHtml +
+      `<p><strong>Capítulo sin pulir:</strong> ${
+        message.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      }</p>`;
   }
+}
+
 
 
 }
