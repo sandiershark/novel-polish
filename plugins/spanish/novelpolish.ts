@@ -289,91 +289,71 @@ class NovaPlugin implements Plugin.PluginBase {
 
 
 
-private async polishChapter(originalHtml: string): Promise<string> {
-  const workerUrl = 'https://novel-polish-api.sandiershark27.workers.dev/';
-  const workerToken = 'rgrgfthjtyf3453j45t23_87??!!';
 
-  const banner = (message: string, color = '#888') =>
-    `<p style="text-align:center;color:${color};font-size:12px;">— ${message} —</p>`;
+  async polishChapter(originalHtml: string): Promise<string> {
+    const workerUrl = 'https://novel-polish-api.sandiershark27.workers.dev/';
+    const workerToken = 'rgrgfthjtyf3453j45t23_87??!!';
 
-  try {
-    const $ = cheerio.load(originalHtml);
-    const originalText = $('body').text().trim();
+    try {
+      const $ = cheerio.load(originalHtml);
+      const originalBody = $('body').html()?.trim() ?? originalHtml;
 
-    if (!originalText) {
-      return banner('Capítulo sin pulir: no se encontró texto', '#b36b00')
-        + originalHtml;
+      if (!originalBody.trim()) {
+        return originalHtml +
+          '<p><strong>Capítulo sin pulir:</strong> no se encontró contenido.</p>';
+      }
+
+      const response = await fetch(workerUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${workerToken}`,
+        },
+        body: JSON.stringify({ html: originalBody }),
+      });
+
+      let data: { html?: string; error?: string };
+
+      try {
+        data = await response.json();
+      } catch {
+        return originalHtml +
+          '<p><strong>Capítulo sin pulir:</strong> el Worker ha devuelto una respuesta que no es JSON válido.</p>';
+      }
+
+      if (!response.ok) {
+        return originalHtml +
+          `<p><strong>Capítulo sin pulir:</strong> ${
+            data.error ?? `Error HTTP ${response.status}`
+          }</p>`;
+      }
+
+      if (typeof data.html !== 'string' || !data.html.trim()) {
+        return originalHtml +
+          '<p><strong>Capítulo sin pulir:</strong> el Worker no ha devuelto HTML.</p>';
+      }
+
+      if (data.html.trim() === originalBody.trim()) {
+        return originalHtml +
+          '<p><strong>Capítulo sin pulir:</strong> el HTML devuelto es idéntico al original.</p>';
+      }
+
+      return data.html +
+        '<p><em>Capítulo pulido con IA.</em></p>';
+
+    } catch (error) {
+      console.error('Error al pulir el capítulo:', error);
+
+      const message = error instanceof Error
+        ? error.message
+        : 'Error desconocido';
+
+      return originalHtml +
+        `<p><strong>Capítulo sin pulir:</strong> ${
+          message.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        }</p>`;
     }
-
-    const response = await fetch(workerUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${workerToken}`,
-      },
-      body: JSON.stringify({ text: originalText }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Error del Worker: HTTP ${response.status}`);
-    }
-
-    const data = await response.json() as { text?: string };
-    const polishedText = data.text?.trim();
-
-    if (!polishedText) {
-      throw new Error('Gemini no ha devuelto texto');
-    }
-
-    // Separar los párrafos usando las líneas en blanco.
-    const normalizedText = polishedText
-      .replace(/\r\n/g, '\n')
-      .replace(/\r/g, '\n')
-      .trim();
-
-    let paragraphs = normalizedText
-      .split(/\n\s*\n/)
-      .map(paragraph => paragraph.trim())
-      .filter(Boolean);
-
-    // Si Gemini no incluye líneas en blanco, utilizar los saltos
-    // de línea como separadores para evitar un bloque de texto único.
-    if (paragraphs.length === 1 && normalizedText.includes('\n')) {
-      paragraphs = normalizedText
-        .split('\n')
-        .map(paragraph => paragraph.trim())
-        .filter(Boolean);
-    }
-
-    // Escapar el texto para que los caracteres de la novela
-    // no se interpreten como etiquetas HTML.
-    const escapeHtml = (text: string) =>
-      text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-
-    const htmlParagraphs = paragraphs
-      .map(paragraph => `<p>${escapeHtml(paragraph)}</p>`)
-      .join('\n');
-
-    console.log('[Novel Polish] Capítulo pulido correctamente.');
-
-    return banner('Capítulo pulido con IA')
-      + htmlParagraphs;
-
-  } catch (error) {
-    const message = error instanceof Error
-      ? error.message
-      : 'Error desconocido';
-
-    console.error('[Novel Polish]', message);
-
-    return banner(`Capítulo sin pulir: ${message}`, '#b36b00')
-      + originalHtml;
   }
-}
 
 
 }
