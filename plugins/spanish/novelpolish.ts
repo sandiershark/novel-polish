@@ -288,20 +288,21 @@ class NovaPlugin implements Plugin.PluginBase {
   }
 
 
-  
 
 private async polishChapter(originalHtml: string): Promise<string> {
-  // Sustituye estos valores por los tuyos.
   const workerUrl = 'https://novel-polish-api.sandiershark27.workers.dev/';
   const workerToken = 'rgrgfthjtyf3453j45t23_87??!!';
 
+  const banner = (message: string, color = '#888') =>
+    `<p style="text-align:center;color:${color};font-size:12px;">— ${message} —</p>`;
+
   try {
-    // Extraer el texto del HTML del capítulo.
     const $ = cheerio.load(originalHtml);
     const originalText = $('body').text().trim();
 
     if (!originalText) {
-      return originalHtml;
+      return banner('Capítulo sin pulir: no se encontró texto', '#b36b00')
+        + originalHtml;
     }
 
     const response = await fetch(workerUrl, {
@@ -310,40 +311,67 @@ private async polishChapter(originalHtml: string): Promise<string> {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${workerToken}`,
       },
-      body: JSON.stringify({
-        text: originalText,
-      }),
+      body: JSON.stringify({ text: originalText }),
     });
 
     if (!response.ok) {
-      throw new Error(`Worker HTTP ${response.status}`);
+      throw new Error(`Error del Worker: HTTP ${response.status}`);
     }
 
     const data = await response.json() as { text?: string };
     const polishedText = data.text?.trim();
 
     if (!polishedText) {
-      throw new Error('El Worker no ha devuelto texto');
+      throw new Error('Gemini no ha devuelto texto');
     }
 
-    // Reconstruir los párrafos para LNReader.
-    polishedText
+    // Separar los párrafos usando las líneas en blanco.
+    const normalizedText = polishedText
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      .trim();
+
+    let paragraphs = normalizedText
       .split(/\n\s*\n/)
-      .map(paragraph =>
-        `<p>${paragraph
-          .trim()
-          .split('\n')
-          .map(line => line.trim())
-          .join('<br>')}</p>`
-      )
-      .join('');
+      .map(paragraph => paragraph.trim())
+      .filter(Boolean);
 
-    return `<p style="text-align:center; color:#b36b00; font-size:12px;">— Capítulo pulido por Novel Polish —</p>${polishedText}`;
+    // Si Gemini no incluye líneas en blanco, utilizar los saltos
+    // de línea como separadores para evitar un bloque de texto único.
+    if (paragraphs.length === 1 && normalizedText.includes('\n')) {
+      paragraphs = normalizedText
+        .split('\n')
+        .map(paragraph => paragraph.trim())
+        .filter(Boolean);
+    }
+
+    // Escapar el texto para que los caracteres de la novela
+    // no se interpreten como etiquetas HTML.
+    const escapeHtml = (text: string) =>
+      text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+
+    const htmlParagraphs = paragraphs
+      .map(paragraph => `<p>${escapeHtml(paragraph)}</p>`)
+      .join('\n');
+
+    console.log('[Novel Polish] Capítulo pulido correctamente.');
+
+    return banner('Capítulo pulido con IA')
+      + htmlParagraphs;
+
   } catch (error) {
-    console.error('[Novel Polish] Error al reformular:', error);
+    const message = error instanceof Error
+      ? error.message
+      : 'Error desconocido';
 
-    // Si falla Gemini o el Worker, conservar el capítulo original.
-    return `<p style="text-align:center; color:#b36b00; font-size:12px;">— Capítulo sin pulir —</p>${originalHtml}`;
+    console.error('[Novel Polish]', message);
+
+    return banner(`Capítulo sin pulir: ${message}`, '#b36b00')
+      + originalHtml;
   }
 }
 
