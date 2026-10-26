@@ -9,9 +9,7 @@ plugins/*/*\[*\]*.ts
 
 # ignore dist stuffs
 .js
-.dist
 .DS_Store
-dist
 total.svg
 .history
 broken-sites-report.json
