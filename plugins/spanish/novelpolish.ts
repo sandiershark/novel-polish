@@ -300,8 +300,7 @@ async polishChapter(originalHtml: string): Promise<string> {
     const originalBody = $('body').html()?.trim() ?? originalHtml;
 
     if (!originalBody.trim()) {
-      return originalHtml +
-        '<p><strong>Capítulo sin pulir:</strong> no se encontró contenido.</p>';
+      return '<p><strong>Capítulo sin pulir:</strong> no se encontró contenido.</p>' + originalHtml;
     }
 
     const response = await fetch(workerUrl, {
@@ -318,25 +317,21 @@ async polishChapter(originalHtml: string): Promise<string> {
     try {
       data = await response.json();
     } catch {
-      return originalHtml +
-        '<p><strong>Capítulo sin pulir:</strong> el Worker ha devuelto una respuesta que no es JSON válido.</p>';
+      return '<p><strong>Capítulo sin pulir:</strong> el Worker ha devuelto una respuesta que no es JSON válido.</p>' + originalHtml;
     }
 
     if (!response.ok) {
-      return originalHtml +
-        `<p><strong>Capítulo sin pulir:</strong> ${
+      return `<p><strong>Capítulo sin pulir:</strong> ${
           data.error ?? `Error HTTP ${response.status}`
-        }</p>`;
+        }</p>` + originalHtml;
     }
 
     if (typeof data.html !== 'string' || !data.html.trim()) {
-      return originalHtml +
-        '<p><strong>Capítulo sin pulir:</strong> el Worker no ha devuelto HTML.</p>';
+      return '<p><strong>Capítulo sin pulir:</strong> el Worker no ha devuelto HTML.</p>' + originalHtml;
     }
 
     if (data.html.trim() === originalBody.trim()) {
-      return originalHtml +
-        '<p><strong>Capítulo sin pulir:</strong> el HTML devuelto es idéntico al original.</p>';
+      return '<p><strong>Capítulo sin pulir:</strong> el HTML devuelto es idéntico al original.</p>' + originalHtml;
     }
 
     // Conserva los elementos del HTML original que estén fuera de los párrafos.
