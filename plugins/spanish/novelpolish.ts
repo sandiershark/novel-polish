@@ -378,8 +378,7 @@ async polishChapter(originalHtml: string): Promise<string> {
       finalBody = preserved + generated('body').html();
     }
 
-    return finalBody +
-      '<p><em>Capítulo pulido con IA.</em></p>';
+    return '<p><em>Capítulo pulido con IA.</em></p>' + finalBody;
 
   } catch (error) {
     console.error('Error al pulir el capítulo:', error);
@@ -388,10 +387,9 @@ async polishChapter(originalHtml: string): Promise<string> {
       ? error.message
       : 'Error desconocido';
 
-    return originalHtml +
-      `<p><strong>Capítulo sin pulir:</strong> ${
+    return `<p><strong>Capítulo sin pulir:</strong> ${
         message.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      }</p>`;
+      }</p>` + originalHtml;
   }
 }
 
