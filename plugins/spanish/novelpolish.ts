@@ -297,11 +297,10 @@ async polishChapter(originalHtml: string): Promise<string> {
 
   try {
     const $ = cheerio.load(originalHtml);
-    const originalBody = $('body').html()?.trim() ?? originalHtml;
 
-    if (!originalBody.trim()) {
-      return '<p><strong>Capítulo sin pulir:</strong> no se encontró contenido.</p>' + originalHtml;
-    }
+    // if (!originalBody.trim()) {
+    //   return '<p><strong>Capítulo sin pulir:</strong> no se encontró contenido.</p>' + originalHtml;
+    // }
 
     const response = await fetch(workerUrl, {
       method: 'POST',
@@ -309,7 +308,7 @@ async polishChapter(originalHtml: string): Promise<string> {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${workerToken}`,
       },
-      body: JSON.stringify({ html: originalBody }),
+      body: JSON.stringify({ html: originalHtml }),
     });
 
     let data: { html?: string; error?: string };
@@ -330,12 +329,12 @@ async polishChapter(originalHtml: string): Promise<string> {
       return '<p><strong>Capítulo sin pulir:</strong> el Worker no ha devuelto HTML.</p>' + originalHtml;
     }
 
-    if (data.html.trim() === originalBody.trim()) {
+    if (data.html.trim() === originalHtml.trim()) {
       return '<p><strong>Capítulo sin pulir:</strong> el HTML devuelto es idéntico al original.</p>' + originalHtml;
     }
 
     // Conserva los elementos del HTML original que estén fuera de los párrafos.
-    const originalParagraphs = cheerio.load(originalBody);
+    const originalParagraphs = cheerio.load(originalHtml);
     const generatedParagraphs = cheerio.load(data.html);
 
     const generatedText = generatedParagraphs('body').html()?.trim()
@@ -357,7 +356,7 @@ async polishChapter(originalHtml: string): Promise<string> {
     let finalBody = generatedText;
 
     if (hasNonParagraphContent) {
-      const original = cheerio.load(originalBody);
+      const original = cheerio.load(originalHtml);
       const generated = cheerio.load(generatedText);
 
       const originalNonParagraphs = original('body')
