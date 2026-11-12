@@ -298,10 +298,6 @@ async polishChapter(originalHtml: string): Promise<string> {
   try {
     const $ = cheerio.load(originalHtml);
 
-    // if (!originalBody.trim()) {
-    //   return '<p><strong>Capítulo sin pulir:</strong> no se encontró contenido.</p>' + originalHtml;
-    // }
-
     const response = await fetch(workerUrl, {
       method: 'POST',
       headers: {
@@ -334,43 +330,12 @@ async polishChapter(originalHtml: string): Promise<string> {
     }
 
     // Conserva los elementos del HTML original que estén fuera de los párrafos.
-    const originalParagraphs = cheerio.load(originalHtml);
     const generatedParagraphs = cheerio.load(data.html);
 
     const generatedText = generatedParagraphs('body').html()?.trim()
       ?? data.html.trim();
 
-    // Si el Worker devuelve párrafos, reemplaza el contenido del capítulo
-    // por ellos, conservando los elementos originales que no sean párrafos.
-    const hasNonParagraphContent = originalParagraphs('body')
-      .contents()
-      .toArray()
-      .some((node) => {
-        if (node.type === 'text') {
-          return !!(node.data ?? '').trim();
-        }
-
-        return node.type === 'tag' && node.name !== 'p';
-      });
-
-    let finalBody = generatedText;
-
-    if (hasNonParagraphContent) {
-      const original = cheerio.load(originalHtml);
-      const generated = cheerio.load(generatedText);
-
-      const originalNonParagraphs = original('body')
-        .contents()
-        .toArray()
-        .filter((node) => node.type === 'tag' && node.name !== 'p');
-
-      // Recupera título y otros elementos originales que no sean párrafos.
-      const preserved = originalNonParagraphs
-        .map((node) => original.html(node) ?? '')
-        .join('');
-
-      finalBody = preserved + generated('body').html();
-    }
+    const finalBody = generatedText;
 
     return '<p><em>Capítulo pulido con IA.</em></p>' + finalBody;
 
@@ -386,8 +351,6 @@ async polishChapter(originalHtml: string): Promise<string> {
       }</p>` + originalHtml;
   }
 }
-
-
 
 }
 
